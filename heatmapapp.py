@@ -202,3 +202,90 @@ try:
 except Exception as e:
     st.error(
         f"Error processing data. Ensure your CSV locations are formatted 'A.10.B.03' and have numerical bays. Details: {e}")
+
+# --- Calculate Aisle Distance Score ---
+aisle_ascii = df['Aisle'].apply(ord)
+
+# A through I: 'A' starts at 2, adding 2 for each letter
+# J through Z: 'J' starts at 0, adding 2 for each letter
+df['Aisle_Score'] = np.where(
+    df['Aisle'] < 'J',
+    (aisle_ascii - ord('A') + 1) * 2,
+    (aisle_ascii - ord('J')) * 2
+)
+
+# --- Calculate Bay & Bin Horizontal Distance Score ---
+# Ensure Bin is an integer (e.g., converting "03" to 3)
+df['Bin_Num'] = df['Bin'].astype(int)
+
+# Each Bay Depth is exactly 5 standard units. Then we add the Bin's position.
+df['Bay_Bin_Score'] = (df['Bay_Depth'] * 5) + df['Bin_Num']
+
+# --- Calculate Shelf Vertical Distance Score ---
+# Find the absolute distance from Shelf 'C'
+# ord('C') is 67. ord('A') is 65. abs(65 - 67) = 2.
+df['Shelf_Score'] = abs(df['Shelf'].apply(ord) - ord('C'))
+
+# --- Final Standardized Location Score ---
+# Add them all together. Lower score means closer to the golden zone!
+df['Location_Quality_Score'] = df['Aisle_Score'] + df['Bay_Bin_Score'] + df['Shelf_Score']
+
+# --- 7. NEW FEATURE: Location Quality Map ---
+st.markdown("---")
+st.header("🎯 Warehouse Slotting Quality Map")
+st.markdown(
+    "This map visualizes your 'Distance from the Golden Zone'. **Green (Lower Score) is highly optimal**, while **Red (Higher Score) is inefficient**.")
+
+# Aggregate the average quality score for each Bay from a top-down view
+quality_agg = df.groupby(['Aisle', 'Aisle_Row', 'Bay_Depth'])['Location_Quality_Score'].mean().reset_index()
+
+# Split into the two sides of the warehouse
+q_side1_df = quality_agg[quality_agg['Aisle'] <= 'I']
+q_side2_df = quality_agg[quality_agg['Aisle'] >= 'J']
+
+# Pivot both sides into 2D matrices
+q_matrix1 = q_side1_df.pivot(index='Bay_Depth', columns='Aisle_Row', values='Location_Quality_Score').fillna(
+    0).sort_index(ascending=False)
+q_matrix2 = q_side2_df.pivot(index='Bay_Depth', columns='Aisle_Row', values='Location_Quality_Score').fillna(
+    0).sort_index(ascending=False)
+
+q_matrix1 = q_matrix1[sorted(q_matrix1.columns)]
+q_matrix2 = q_matrix2[sorted(q_matrix2.columns)]
+
+# Create the Plotly figure (1x2 grid)
+q_fig = make_subplots(
+    rows=1, cols=2,
+    subplot_titles=("⬅️ Quality: Side 1 (Aisles A - I)", "Quality: Side 2 (Aisles J - Z) ➡️"),
+    horizontal_spacing=0.05, shared_yaxes=True
+)
+
+# Add Heatmaps using the Reversed Red-Yellow-Green scale
+q_fig.add_trace(
+    go.Heatmap(
+        z=q_matrix1.values, x=q_matrix1.columns, y=q_matrix1.index,
+        colorscale='RdYlGn_r', coloraxis="coloraxis2",
+        text=q_matrix1.values, texttemplate="%{text:.1f}",
+        hovertemplate="Row: %{x}<br>Depth: %{y}<br>Avg Quality: %{z:.1f}<extra></extra>"
+    ), row=1, col=1
+)
+
+q_fig.add_trace(
+    go.Heatmap(
+        z=q_matrix2.values, x=q_matrix2.columns, y=q_matrix2.index,
+        colorscale='RdYlGn_r', coloraxis="coloraxis2",
+        text=q_matrix2.values, texttemplate="%{text:.1f}",
+        hovertemplate="Row: %{x}<br>Depth: %{y}<br>Avg Quality: %{z:.1f}<extra></extra>"
+    ), row=1, col=2
+)
+
+# Tweak layout so the colorbar has its own distinct scale (coloraxis2) separate from the Sales map
+q_fig.update_layout(
+    height=650,
+    coloraxis2=dict(colorscale='RdYlGn_r', colorbar_title="Quality Score<br>(Lower = Better)"),
+    margin=dict(l=20, r=20, t=60, b=20)
+)
+
+q_fig.update_xaxes(side="top", tickangle=-45)
+q_fig.update_yaxes(title_text="Bay Depth", row=1, col=1)
+
+st.plotly_chart(q_fig, use_container_width=True)
