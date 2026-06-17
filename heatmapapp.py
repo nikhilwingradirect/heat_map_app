@@ -300,3 +300,52 @@ q_fig.update_xaxes(side="top", tickangle=-45)
 q_fig.update_yaxes(title_text="Bay Depth", row=1, col=1)
 
 st.plotly_chart(q_fig, use_container_width=True)
+
+# --- 8. NEW FEATURE: Micro Drill-Down for Quality Scores ---
+st.markdown("---")
+st.header("🔬 Micro Drill-Down: Bin-by-Bin Quality Check")
+st.markdown(
+    "Inspect the exact mathematical distance score for every individual bin on a specific bay. **Green = Golden Zone, Red = Inefficient.**")
+
+# Selectboxes to let user target a location for Quality
+col1, col2 = st.columns(2)
+with col1:
+    # We can reuse the distinct_aisle_rows list from Step 6
+    selected_row_q = st.selectbox("🎯 Target Aisle & Row Side (Quality):", distinct_aisle_rows, key="q_row")
+with col2:
+    row_filtered_df_q = df[df['Aisle_Row'] == selected_row_q]
+    distinct_bays_q = sorted(row_filtered_df_q['Bay_Num'].unique())
+    selected_bay_q = st.selectbox("🔢 Target Bay Number (Quality):", distinct_bays_q, key="q_bay")
+
+# Filter data down to that exact physical zone using the Bay Number
+sub_q_df = df[(df['Aisle_Row'] == selected_row_q) & (df['Bay_Num'] == selected_bay_q)]
+
+if not sub_q_df.empty:
+    # We use .mean() here, but since each bin only has 1 score, it just grabs the exact score
+    sub_q_agg = sub_q_df.groupby(['Shelf', 'Bin'])['Location_Quality_Score'].mean().reset_index()
+    sub_q_matrix = sub_q_agg.pivot(index='Shelf', columns='Bin', values='Location_Quality_Score').fillna(0)
+
+    # Sort shelves descending so Shelf D is physically above Shelf A on screen
+    sub_q_matrix = sub_q_matrix.sort_index(ascending=False)
+    sub_q_matrix = sub_q_matrix[sorted(sub_q_matrix.columns)]
+
+    # Build secondary quality heatmap
+    sub_q_fig = px.imshow(
+        sub_q_matrix,
+        labels=dict(x="Bin Number", y="Shelf Level", color="Quality Score"),
+        x=sub_q_matrix.columns,
+        y=sub_q_matrix.index,
+        text_auto=".0f",  # Show as clean, whole numbers
+        color_continuous_scale="RdYlGn_r",  # Green = Good (Low Score), Red = Bad (High Score)
+        aspect="auto"
+    )
+
+    sub_q_fig.update_layout(
+        title=f"Bin-Level Quality Map for {selected_row_q} | Bay: {selected_bay_q}",
+        height=350,
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+
+    st.plotly_chart(sub_q_fig, use_container_width=True)
+else:
+    st.warning("No quality data registered at this specific coordinate.")
