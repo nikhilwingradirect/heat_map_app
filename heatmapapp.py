@@ -224,7 +224,18 @@ df['Bay_Bin_Score'] = (df['Bay_Depth'] * 5) + df['Bin_Num']
 # --- Calculate Shelf Vertical Distance Score ---
 # Find the absolute distance from Shelf 'C'
 # ord('C') is 67. ord('A') is 65. abs(65 - 67) = 2.
-df['Shelf_Score'] = abs(df['Shelf'].apply(ord) - ord('C'))
+# Create a safe function to calculate the shelf score
+def get_shelf_score(val):
+    try:
+        # Convert to string, remove spaces, make uppercase, and grab the first letter
+        clean_char = str(val).strip().upper()[0]
+        return abs(ord(clean_char) - ord('C'))
+    except:
+        # If the shelf is missing entirely or completely broken, assign a penalty score of 5
+        return 5
+
+# Apply the safe function to the column
+df['Shelf_Score'] = df['Shelf'].apply(get_shelf_score)
 
 # --- Final Standardized Location Score ---
 # Add them all together. Lower score means closer to the golden zone!
