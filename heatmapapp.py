@@ -210,8 +210,8 @@ aisle_ascii = df['Aisle'].apply(ord)
 # J through Z: 'J' starts at 0, adding 2 for each letter
 df['Aisle_Score'] = np.where(
     df['Aisle'] < 'J',
-    (aisle_ascii - ord('A') + 1) * 2,
-    (aisle_ascii - ord('J')) * 2
+    (aisle_ascii - ord('A') + 1) * 3,
+    (aisle_ascii - ord('J')) * 3
 )
 
 # --- Calculate Bay & Bin Horizontal Distance Score ---
