@@ -216,7 +216,7 @@ df['Aisle_Score'] = np.where(
 
 # --- Calculate Bay & Bin Horizontal Distance Score ---
 # Ensure Bin is an integer (e.g., converting "03" to 3)
-df['Bin_Num'] = df['Bin'].astype(int)
+df['Bin_Num'] = pd.to_numeric(df['Bin'], errors='coerce').fillna(0).astype(int)
 
 # Each Bay Depth is exactly 5 standard units. Then we add the Bin's position.
 df['Bay_Bin_Score'] = (df['Bay_Depth'] * 5) + df['Bin_Num']
