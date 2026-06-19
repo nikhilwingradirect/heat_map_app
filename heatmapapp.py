@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 
 # --- 1. Streamlit Page Setup ---
 st.set_page_config(page_title="Warehouse Floor Plan Heatmap", page_icon="📦", layout="wide")
-st.title("📦 Warehouse Floor Plan Heatmap")
+st.title("📦 Warehouse Floor Plan Heatmap (Total Sales)")
 st.markdown(
     "Top-down physical view of warehouse performance. Aisles are split into Odd/Even rows, with a main cross-aisle separating sections A-I and J-Z.")
 
