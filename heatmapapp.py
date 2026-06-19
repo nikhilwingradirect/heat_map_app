@@ -176,7 +176,7 @@ try:
         ).reset_index()
 
         # Create TWO matrices: one for the math (Sales), and one for the text (SKUs)
-        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Quantity').fillna(0)
+        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Sales').fillna(0)
         item_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Item_List').fillna("Empty Bin")
 
         # Sort both matrices identically so Shelf D is physically above Shelf A
