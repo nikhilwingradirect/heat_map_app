@@ -149,7 +149,7 @@ try:
     # Display the chart
     st.plotly_chart(fig, use_container_width=True)
 
-
+    # --- 6. UPDATED FEATURE: Dynamic Sub-Heatmap Drill Down (with SKUs) ---
     st.markdown("---")
     st.header("🔍 Macro Drill-Down: Shelf & Bin Blueprint")
     st.markdown(
@@ -163,37 +163,55 @@ try:
     with col2:
         row_filtered_df = df[df['Aisle_Row'] == selected_row]
         distinct_bays = sorted(row_filtered_df['Bay_Num'].unique())
-
         selected_bay = st.selectbox("🔢 Target Bay Number:", distinct_bays)
 
-        # Filter data down to that exact physical zone using the Bay Number
+    # Filter data down to that exact physical zone using the Bay Number
     sub_df = df[(df['Aisle_Row'] == selected_row) & (df['Bay_Num'] == selected_bay)]
 
     if not sub_df.empty:
-        # Group sales by Shelf level and Bin number
-        sub_agg = sub_df.groupby(['Shelf', 'Bin'])['Quantity'].sum().reset_index()
-        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Quantity').fillna(0)
+        # Group by Shelf and Bin, sum the Sales, AND combine the Item SKUs into a text string separated by line breaks (<br>)
+        sub_agg = sub_df.groupby(['Shelf', 'Bin']).agg(
+            Sales=('Sales', 'sum'),
+            Item_List=('Sku', lambda x: '<br>'.join(x.astype(str).unique()))
+        ).reset_index()
 
-        # Sort shelves descending so Shelf D is physically above Shelf A on screen
+        # Create TWO matrices: one for the math (Sales), and one for the text (SKUs)
+        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Sales').fillna(0)
+        item_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Item_List').fillna("Empty Bin")
+
+        # Sort both matrices identically so Shelf D is physically above Shelf A
         sub_matrix = sub_matrix.sort_index(ascending=False)
         sub_matrix = sub_matrix[sorted(sub_matrix.columns)]
 
-        # Build secondary heatmap
-        sub_fig = px.imshow(
-            sub_matrix,
-            labels=dict(x="Bin Number", y="Shelf Level", color="Units Sold"),
+        item_matrix = item_matrix.sort_index(ascending=False)
+        item_matrix = item_matrix[sorted(item_matrix.columns)]
+
+        # Build secondary heatmap using go.Heatmap to allow custom text injection
+        sub_fig = go.Figure(data=go.Heatmap(
+            z=sub_matrix.values,
             x=sub_matrix.columns,
             y=sub_matrix.index,
-            text_auto=True,
-            color_continuous_scale="Viridis",  # Different color matrix so it stands out
-            aspect="auto"
-        )
+            colorscale='Viridis',
+            text=sub_matrix.values,
+            texttemplate="%{text}",
+            customdata=item_matrix.values,  # Inject the SKU matrix in the background!
+            hovertemplate=(
+                "<b>Shelf:</b> %{y}<br>"
+                "<b>Bin:</b> %{x}<br>"
+                "<b>Units Sold:</b> %{z}<br>"
+                "---<br>"
+                "<b>SKU(s) inside:</b><br>%{customdata}"
+                "<extra></extra>"
+            )
+        ))
 
         sub_fig.update_layout(
-            title=f"Detailed Micro-Map for {selected_row} | Bay Number: {selected_bay}",
+            title=f"Detailed Micro-Map for {selected_row} | Bay: {selected_bay}",
+            xaxis_title="Bin Number",
+            yaxis_title="Shelf Level",
             height=350,
             margin=dict(l=20, r=20, t=50, b=20)
-         )
+        )
 
         st.plotly_chart(sub_fig, use_container_width=True)
     else:
