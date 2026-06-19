@@ -171,12 +171,12 @@ try:
     if not sub_df.empty:
         # Group by Shelf and Bin, sum the Sales, AND combine the Item SKUs into a text string separated by line breaks (<br>)
         sub_agg = sub_df.groupby(['Shelf', 'Bin']).agg(
-            Sales=('Sales', 'sum'),
+            Sales=('Quantity', 'sum'),
             Item_List=('Sku', lambda x: '<br>'.join(x.astype(str).unique()))
         ).reset_index()
 
         # Create TWO matrices: one for the math (Sales), and one for the text (SKUs)
-        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Sales').fillna(0)
+        sub_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Quantity').fillna(0)
         item_matrix = sub_agg.pivot(index='Shelf', columns='Bin', values='Item_List').fillna("Empty Bin")
 
         # Sort both matrices identically so Shelf D is physically above Shelf A
